@@ -1,0 +1,98 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Probability Theory and Statistics. Mini-Research Project.
+
+**Team:**
+
+-   **Andrii Kulbaba**
+-   **Nestor Leyko**
+-   **Bohdan Pavlunyshyn**
+
+**Sources:**
+
+-   **Test 1:**
+
+    1.  [Kaggle: Poland Presidential Elections 2025](https://www.kaggle.com/datasets/marcelbiezunski/presidential-elections-poland-2025-official-data)
+    2.  [Kaggle: belarusian Presidential Elections 2020](https://www.kaggle.com/datasets/vadimkonovod/2020-belarusian-presidential-election)
+    3.  [Kaggle: russian Presidential Elections 2018](https://www.kaggle.com/datasets/valenzione/russian-presidental-elections-2018-voting-data)
+
+<!-- -->
+
+-   **Test 2:**
+
+    1.  [Kaggle: Poland Presidential Elections 2025](https://www.kaggle.com/datasets/marcelbiezunski/presidential-elections-poland-2025-official-data)
+
+------------------------------------------------------------------------
+
+### **What?**
+
+**Benford's law**, also known as the **Newcomb–Benford law**, the **law of anomalous numbers**, is an observation that in many real-life sets of numerical data, the leading digit is likely to be small. In sets that obey the law, the number 1 appears as the leading significant digit about 30% of the time, while 9 appears as the leading significant digit less than 5% of the time. Uniformly distributed digits would occur about 11.1% of the time each. Benford's law also makes predictions about the distribution of second digits, third digits, and digit combinations, among others.
+
+### **Why?**
+
+Our project focuses on discovering **Benford's Law**. This law is fascinating due to its characteristics and can be used to detect fraud in different fields, such as finance, economy, population, and other statistics that we measure. The main feature of the law is that it is independent of the metric system and can predict a significant amount of information.
+
+### **Random Variable**
+
+We denote the r.v. X as the vote count for a specific candidate in a specific precinct.\
+
+### **Statistics**
+
+The **Benford law** applies to any measurement system and any base of logarithms; however, we will consider using the decimal system and thus will use $log_{10}(d)$ where d is our number.
+
+Also, Benford’s law is discrete, so we can say that:
+
+$$
+P(d) =log_{10}(1+\frac{1}{d}) \text{  --  the PMF }
+$$
+
+To compare our observed data against this theoretical PMF, we will use the Chi-Square Goodness-of-Fit statistic. This statistic is standard in analyzing the data using Benford’s law.
+
+$$
+x^2 = \sum_{d=1}^{9}{\frac{(O_{d}- E_{d})^2}{E_{d}}}
+$$\
+**d**: The digit $(1, 2, \dots, 9)$.
+
+$O_d$**​ (Observed):** The actual number of precincts in your dataset where the vote count starts with digit d.
+
+$E_d$**​ (Expected):** The number of precincts that should begin with digit d according to Benford's Law.
+
+------------------------------------------------------------------------
+
+## Preparing data for the testing
+
+```{r}
+```
+
+------------------------------------------------------------------------
+
+## **Test 1. Were the elections fair?**
+
+We will use the law to examine the differences in elections between democratic countries and totalitarian countries. For comparison, we’ll use the data sets of elections from belarus/russia (fraudulent elections) and Poland (fair elections).
+
+$H_0$: The dataset follows Benford's Law distribution. This is consistent with a natural, fair election process.
+
+$H_1$:The dataset differs significantly from Benford's Law. This suggests non-natural anomalies, which may indicate data manipulation or fraud.
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+## **Test 2. Urban vs. rural districts (Size matters?)**
+
+We will assess the effectiveness of the law across a wide range of numbers. We’ll use the dataset of Polish elections, which differentiates the population by city and village.
+
+$H_0$: Urban and rural precincts conform to the Benford distribution equally well.
+
+$H_1$: Urban precincts conform more closely to Benford's Law than rural precincts. Reasoning: Urban precincts have a wider range of vote counts (spanning more orders of magnitude), which is a prerequisite for ideal Benford behavior. Rural precincts may have naturally restricted ranges (low counts), causing natural deviations.
+
+```{r}
+
+```
+
+\
