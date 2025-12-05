@@ -64,7 +64,192 @@ $E_d$**​ (Expected):** The number of precincts that should begin with digit d 
 
 ## Preparing data for the testing
 
+### Helper functions
+
 ```{r}
+extract_first_digit <- function(x) {
+  x <- as.numeric(x)
+  x <- abs(x[x > 0 & !is.na(x)])
+  first_digit <- as.numeric(substr(as.character(x), 1, 1))
+  return(first_digit[first_digit >= 1 & first_digit <= 9])
+}
+
+benford_distribution <- function() {
+  digits <- 1:9
+  prob <- log10(1 + 1/digits)
+  return(data.frame(digit = digits, expected_prob = prob))
+}
+
+calculate_frequencies <- function(first_digits) {
+  obs_counts <- table(factor(first_digits, levels = 1:9))
+  obs_freq <- as.numeric(obs_counts)
+  obs_prob <- obs_freq / sum(obs_freq)
+  
+  benford <- benford_distribution()
+  
+  result <- data.frame(
+    digit = 1:9,
+    observed_count = obs_freq,
+    observed_prob = obs_prob,
+    expected_prob = benford$expected_prob,
+    expected_count = benford$expected_prob * sum(obs_freq)
+  )
+  
+  return(result)
+}
+```
+
+### Functions for data loading
+
+```{r}
+load_russia_data <- function(filepath) {
+  data <- read.csv(filepath, stringsAsFactors = FALSE)
+  
+  candidate_cols <- c("Baburin.Sergei.Nikolaevich",
+                      "Grudinin.Pavel.Nikolaevich",
+                      "Zhirinovskiy.Vladimir.Volfovich",
+                      "Putin.Vladimir.Vladimirovich",
+                      "Sobchak.Ksenia.Anatolyevna",
+                      "Suraikin.Maksim.Aleksandrovich",
+                      "Titov.Boris.Yurievich",
+                      "Yavlinskiy.Gregory.Alekseivich")
+  
+  votes <- data %>%
+    select(any_of(candidate_cols)) %>%
+    pivot_longer(cols = everything(), names_to = "candidate", values_to = "votes") %>%
+    filter(!is.na(votes) & votes > 0) %>%
+    pull(votes)
+  
+  return(votes)
+}
+
+load_belarus_data <- function(filepath) {
+  data <- read.csv(filepath, stringsAsFactors = FALSE)
+  
+  candidate_cols <- c("Dmitriev", "Konopackaya", "Lukashenko", 
+                      "Tsikhanouskaya", "Cherechen", "Against.all")
+  
+  votes <- data %>%
+    select(any_of(candidate_cols)) %>%
+    pivot_longer(cols = everything(), names_to = "candidate", values_to = "votes") %>%
+    filter(!is.na(votes) & votes > 0) %>%
+    pull(votes)
+  
+  return(votes)
+}
+
+load_poland_data <- function(filepath) {
+  data <- read.csv(filepath, stringsAsFactors = FALSE, sep = ";", 
+                   fileEncoding = "UTF-8")
+  
+  colnames(data) <- make.names(colnames(data))
+  
+  candidate_cols <- tail(colnames(data), 2)
+  
+  votes_data <- data %>%
+    select(area_type = Typ.obszaru, all_of(candidate_cols)) %>%
+    pivot_longer(cols = all_of(candidate_cols), 
+                 names_to = "candidate", 
+                 values_to = "votes") %>%
+    filter(!is.na(votes) & votes > 0)
+  
+  return(votes_data)
+}
+```
+### Preparation for Test 1
+
+```{r}
+prepare_test1_data <- function(russia_file, belarus_file, poland_file) {
+  russia_votes <- load_russia_data(russia_file)
+  belarus_votes <- load_belarus_data(belarus_file)
+  poland_data <- load_poland_data(poland_file)
+  poland_votes <- poland_data$votes
+  
+  russia_first <- extract_first_digit(russia_votes)
+  belarus_first <- extract_first_digit(belarus_votes)
+  poland_first <- extract_first_digit(poland_votes)
+  
+  russia_freq <- calculate_frequencies(russia_first)
+  belarus_freq <- calculate_frequencies(belarus_first)
+  poland_freq <- calculate_frequencies(poland_first)
+  
+  russia_freq$country <- "Russia (Fraudulent)"
+  belarus_freq$country <- "Belarus (Fraudulent)"
+  poland_freq$country <- "Poland (Fair)"
+  
+  results <- list(
+    russia = list(
+      votes = russia_votes,
+      first_digits = russia_first,
+      frequencies = russia_freq
+    ),
+    belarus = list(
+      votes = belarus_votes,
+      first_digits = belarus_first,
+      frequencies = belarus_freq
+    ),
+    poland = list(
+      votes = poland_votes,
+      first_digits = poland_first,
+      frequencies = poland_freq
+    ),
+    combined_freq = bind_rows(russia_freq, belarus_freq, poland_freq)
+  )
+  
+  return(results)
+}
+```
+
+### Preparation for Test 2
+
+```{r}
+prepare_test2_data <- function(poland_file) {
+  poland_data <- load_poland_data(poland_file)
+  
+  urban_votes <- poland_data %>%
+    filter(str_detect(tolower(area_type), "mias")) %>%
+    pull(votes)
+  
+  rural_votes <- poland_data %>%
+    filter(str_detect(tolower(area_type), "wiej")) %>%
+    pull(votes)
+  
+  urban_first <- extract_first_digit(urban_votes)
+  rural_first <- extract_first_digit(rural_votes)
+  
+  urban_freq <- calculate_frequencies(urban_first)
+  rural_freq <- calculate_frequencies(rural_first)
+  
+  urban_freq$area_type <- "Urban"
+  rural_freq$area_type <- "Rural"
+  
+  results <- list(
+    urban = list(
+      votes = urban_votes,
+      first_digits = urban_first,
+      frequencies = urban_freq
+    ),
+    rural = list(
+      votes = rural_votes,
+      first_digits = rural_first,
+      frequencies = rural_freq
+    ),
+    combined_freq = bind_rows(urban_freq, rural_freq)
+  )
+  
+  return(results)
+}
+```
+
+### Extrating data from given files
+
+```{r}
+russia_file <- "voting_data_geo_eng.csv"
+belarus_file <- "Protocol_data.csv"
+poland_file <- "polling_station_protocols_2.csv"
+
+test1_data <- prepare_test1_data(russia_file, belarus_file, poland_file)
+test2_data <- prepare_test2_data(poland_file)
 ```
 
 ------------------------------------------------------------------------
