@@ -228,6 +228,11 @@ prepare_test1_data <- function() {
   poland_votes <- as.vector(as.matrix(poland_df))
   belarus_votes <- as.vector(as.matrix(belarus_df))
 
+
+  russia_votes <- russia_votes[russia_votes >= 10]
+  poland_votes <- poland_votes[poland_votes >= 10]
+  belarus_votes <- belarus_votes[belarus_votes >= 10]
+
   russia_first <- extract_first_digit(russia_votes)
   poland_first <- extract_first_digit(poland_votes)
   belarus_first <- extract_first_digit(belarus_votes)
