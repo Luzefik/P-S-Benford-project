@@ -5,64 +5,156 @@ output: html_notebook
 
 # Probability Theory and Statistics. Mini-Research Project.
 
-**Team:**
+**Team:** - Andrii Kulbaba - Nestor Leyko - Bohdan Pavlunyshyn
 
--   **Andrii Kulbaba**
--   **Nestor Leyko**
--   **Bohdan Pavlunyshyn**
+## Sources
 
-**Sources:**
+**Test 1:** - Kaggle: Poland Presidential Elections 2025 - Kaggle: belarusian Presidential Elections 2020 - Kaggle: russian Presidential Elections 2018
 
--   **Test 1:**
+**Test 2:** - Kaggle: Poland Presidential Elections 2025
 
-    1.  [Kaggle: Poland Presidential Elections 2025](https://www.kaggle.com/datasets/marcelbiezunski/presidential-elections-poland-2025-official-data)
-    2.  [Kaggle: belarusian Presidential Elections 2020](https://www.kaggle.com/datasets/vadimkonovod/2020-belarusian-presidential-election)
-    3.  [Kaggle: russian Presidential Elections 2018](https://www.kaggle.com/datasets/valenzione/russian-presidental-elections-2018-voting-data)
+## What?
 
-<!-- -->
+Benford's law, also known as the Newcomb–Benford law, the law of anomalous numbers, is an observation that in many real-life sets of numerical data, the leading digit is likely to be small. In sets that obey the law, the number 1 appears as the leading significant digit about 30% of the time, while 9 appears as the leading significant digit less than 5% of the time. Uniformly distributed digits would occur about 11.1% of the time each. Benford's law also makes predictions about the distribution of second digits, third digits, and digit combinations, among others.
 
--   **Test 2:**
+## Why?
 
-    1.  [Kaggle: Poland Presidential Elections 2025](https://www.kaggle.com/datasets/marcelbiezunski/presidential-elections-poland-2025-official-data)
+Our project focuses on discovering Benford's Law. This law is fascinating due to its characteristics and can be used to detect fraud in different fields, such as finance, economy, population, and other statistics that we measure. The main feature of the law is that it is independent of the metric system and can predict a significant amount of information.
 
-------------------------------------------------------------------------
+## Random Variable
 
-### **What?**
+We denote the r.v. X as the vote count for a specific candidate in a specific precinct.
 
-**Benford's law**, also known as the **Newcomb–Benford law**, the **law of anomalous numbers**, is an observation that in many real-life sets of numerical data, the leading digit is likely to be small. In sets that obey the law, the number 1 appears as the leading significant digit about 30% of the time, while 9 appears as the leading significant digit less than 5% of the time. Uniformly distributed digits would occur about 11.1% of the time each. Benford's law also makes predictions about the distribution of second digits, third digits, and digit combinations, among others.
+## Statistics
 
-### **Why?**
+The Benford law applies to any measurement system and any base of logarithms; however, we will consider using the decimal system and thus will use $\log_{10}(d)$ where d is our number.
 
-Our project focuses on discovering **Benford's Law**. This law is fascinating due to its characteristics and can be used to detect fraud in different fields, such as finance, economy, population, and other statistics that we measure. The main feature of the law is that it is independent of the metric system and can predict a significant amount of information.
+Also, Benford's law is discrete, so we can say that:
 
-### **Random Variable**
+$$P(d) = \log_{10}\left(1+\frac{1}{d}\right) \text{ -- the PMF}$$
 
-We denote the r.v. X as the vote count for a specific candidate in a specific precinct.\
+-   $d$: The digit $(1, 2, \dots, 9)$.
+-   $O_d$ (Observed): The actual number of precincts in your dataset where the vote count starts with digit d.
+-   $E_d$ (Expected): The number of precincts that should begin with digit d according to Benford's Law.
 
-### **Statistics**
+$$\chi^2 = \sum_{d=1}^{9}{\frac{(O_{d}- E_{d})^2}{E_{d}}}$$
 
-The **Benford law** applies to any measurement system and any base of logarithms; however, we will consider using the decimal system and thus will use $log_{10}(d)$ where d is our number.
+## Setup
 
-Also, Benford’s law is discrete, so we can say that:
-
-$$
-P(d) =log_{10}(1+\frac{1}{d}) \text{  --  the PMF }
-$$
-
-To compare our observed data against this theoretical PMF, we will use the Chi-Square Goodness-of-Fit statistic. This statistic is standard in analyzing the data using Benford’s law.
-
-$$
-x^2 = \sum_{d=1}^{9}{\frac{(O_{d}- E_{d})^2}{E_{d}}}
-$$\
-**d**: The digit $(1, 2, \dots, 9)$.
-
-$O_d$**​ (Observed):** The actual number of precincts in your dataset where the vote count starts with digit d.
-
-$E_d$**​ (Expected):** The number of precincts that should begin with digit d according to Benford's Law.
-
-------------------------------------------------------------------------
+```{r setup}
+library(reticulate)
+py_install("pandas")
+library(dplyr)
+library(rmarkdown)
+library(ggplot2)
+```
 
 ## Preparing data for the testing
+
+### Functions for data loading
+
+Pandas version implementation. Firstly we need to obtain data from the dataset. We'll use the Total votes data of polling station. Due to standardizing the size of the stations (usually they are 100-5000). Also we filtrate the polling posts where less than 10 votes for some candidate.
+
+```{python}
+import pandas as pd
+
+def process_russia_data():
+    data = pd.read_csv("voting_data_geo_eng.csv")
+    candidate_cols = [
+        "Baburin Sergei Nikolaevich",
+        "Grudinin Pavel Nikolaevich",
+        "Zhirinovskiy Vladimir Volfovich",
+        "Putin Vladimir Vladimirovich",
+        "Sobchak Ksenia Anatolyevna",
+        "Suraikin Maksim Aleksandrovich",
+        "Titov Boris Yurievich",
+        "Yavlinskiy Gregory Alekseivich"
+    ]
+    polling_station = data.melt(
+        id_vars=[col for col in data.columns if col not in candidate_cols],
+        value_vars=candidate_cols,
+        var_name="candidate",
+        value_name="votes"
+    )
+    print(polling_station.head())
+    polling_station = polling_station.dropna(subset=['votes'])
+    polling_station['votes'] = polling_station['votes'].astype(int)
+    results = {}
+    for candidate in candidate_cols:
+        candidate_votes = polling_station[polling_station["candidate"]== candidate]['votes']
+        clean_votes = candidate_votes[candidate_votes >= 10]
+        print(f"candidate {candidate}: polling stations (>= 10 votes) {len(clean_votes)}")
+    return polling_station, candidate_cols
+
+russia_cleaned = process_russia_data()
+```
+
+```{python}
+def process_poland_data():
+    data = pd.read_csv("first_round_results_from_district_electoral_comissions.csv")
+    candidate_cols = [
+        "BARTOSZEWICZ Artur",
+        "BIEJAT Magdalena Agnieszka",
+        "BRAUN Grzegorz Michał",
+        "HOŁOWNIA Szymon Franciszek",
+        "JAKUBIAK Marek",
+        'MACIAK Maciej',
+        "MENTZEN Sławomir Jerzy",
+        "NAWROCKI Karol Tadeusz",
+        "SENYSZYN Joanna",
+        "STANOWSKI Krzysztof Jakub",
+        "TRZASKOWSKI Rafał Kazimierz",
+        "WOCH Marek Marian",
+        "ZANDBERG Adrian Tadeusz"
+    ]
+    polling_station = data.melt(
+        id_vars=[col for col in data.columns if col not in candidate_cols],
+        value_vars=candidate_cols,
+        var_name="candidate",
+        value_name="votes"
+    )
+    print(polling_station.head())
+    polling_station = polling_station.dropna(subset=['votes'])
+    polling_station['votes'] = polling_station['votes'].astype(int)
+    results = {}
+    for candidate in candidate_cols:
+        candidate_votes = polling_station[polling_station["candidate"]== candidate]['votes']
+        clean_votes = candidate_votes[candidate_votes >= 10]
+        print(f"candidate {candidate}: polling stations (>= 10 votes) {len(clean_votes)}")
+    return polling_station, candidate_cols
+
+poland_cleaned = process_poland_data()
+```
+
+```{python}
+def process_belarus_data():
+    data = pd.read_csv("Protocol_data.csv")
+    candidate_cols = [
+        "Dmitriev",
+        "Konopackaya",
+        "Lukashenko",
+        "Tsikhanouskaya",
+        "Cherechen",
+        "Against all"
+    ]
+    polling_station = data.melt(
+        id_vars=[col for col in data.columns if col not in candidate_cols],
+        value_vars=candidate_cols,
+        var_name="candidate",
+        value_name="votes"
+    )
+    print(polling_station.head())
+    polling_station = polling_station.dropna(subset=['votes'])
+    polling_station['votes'] = polling_station['votes'].astype(int)
+    results = {}
+    for candidate in candidate_cols:
+        candidate_votes = polling_station[polling_station["candidate"]== candidate]['votes']
+        clean_votes = candidate_votes[candidate_votes >= 10]
+        print(f"candidate {candidate}: polling stations (>= 10 votes) {len(clean_votes)}")
+    return polling_station, candidate_cols
+
+belarus_cleaned = process_belarus_data()
+```
 
 ### Helper functions
 
@@ -74,19 +166,30 @@ extract_first_digit <- function(x) {
   return(first_digit[first_digit >= 1 & first_digit <= 9])
 }
 
-benford_distribution <- function() {
+extract_second_digit <- function(x) {
+  x <- as.numeric(x)
+  x <- abs(x[x >= 10 & !is.na(x)])
+  second_digit <- as.numeric(substr(as.character(x), 2, 2))
+  return(second_digit[second_digit >= 0 & second_digit <= 9])
+}
+
+benford_distribution_1bl <- function() {
   digits <- 1:9
   prob <- log10(1 + 1/digits)
   return(data.frame(digit = digits, expected_prob = prob))
 }
 
-calculate_frequencies <- function(first_digits) {
+benford_distribution_2bl <- function() {
+  digits <- 0:9
+  probs <- c(0.11968, 0.11389, 0.10882, 0.10433, 0.10031, 0.09668, 0.09337, 0.09035, 0.08757, 0.08500)
+  return(data.frame(digit = digits, expected_prob = probs))
+}
+
+calculate_frequencies_1bl <- function(first_digits) {
   obs_counts <- table(factor(first_digits, levels = 1:9))
   obs_freq <- as.numeric(obs_counts)
   obs_prob <- obs_freq / sum(obs_freq)
-  
-  benford <- benford_distribution()
-  
+  benford <- benford_distribution_1bl()
   result <- data.frame(
     digit = 1:9,
     observed_count = obs_freq,
@@ -94,190 +197,236 @@ calculate_frequencies <- function(first_digits) {
     expected_prob = benford$expected_prob,
     expected_count = benford$expected_prob * sum(obs_freq)
   )
-  
+  return(result)
+}
+
+calculate_frequencies_2bl <- function(second_digits) {
+  obs_counts <- table(factor(second_digits, levels = 0:9))
+  obs_freq <- as.numeric(obs_counts)
+  obs_prob <- obs_freq / sum(obs_freq)
+  benford <- benford_distribution_2bl()
+  result <- data.frame(
+    digit = 0:9,
+    observed_count = obs_freq,
+    observed_prob = obs_prob,
+    expected_prob = benford$expected_prob,
+    diff = obs_prob - benford$expected_prob
+  )
   return(result)
 }
 ```
 
-### Functions for data loading
-
-```{r}
-load_russia_data <- function(filepath) {
-  data <- read.csv(filepath, stringsAsFactors = FALSE)
-  
-  candidate_cols <- c("Baburin.Sergei.Nikolaevich",
-                      "Grudinin.Pavel.Nikolaevich",
-                      "Zhirinovskiy.Vladimir.Volfovich",
-                      "Putin.Vladimir.Vladimirovich",
-                      "Sobchak.Ksenia.Anatolyevna",
-                      "Suraikin.Maksim.Aleksandrovich",
-                      "Titov.Boris.Yurievich",
-                      "Yavlinskiy.Gregory.Alekseivich")
-  
-  votes <- data %>%
-    select(any_of(candidate_cols)) %>%
-    pivot_longer(cols = everything(), names_to = "candidate", values_to = "votes") %>%
-    filter(!is.na(votes) & votes > 0) %>%
-    pull(votes)
-  
-  return(votes)
-}
-
-load_belarus_data <- function(filepath) {
-  data <- read.csv(filepath, stringsAsFactors = FALSE)
-  
-  candidate_cols <- c("Dmitriev", "Konopackaya", "Lukashenko", 
-                      "Tsikhanouskaya", "Cherechen", "Against.all")
-  
-  votes <- data %>%
-    select(any_of(candidate_cols)) %>%
-    pivot_longer(cols = everything(), names_to = "candidate", values_to = "votes") %>%
-    filter(!is.na(votes) & votes > 0) %>%
-    pull(votes)
-  
-  return(votes)
-}
-
-load_poland_data <- function(filepath) {
-  data <- read.csv(filepath, stringsAsFactors = FALSE, sep = ";", 
-                   fileEncoding = "UTF-8")
-  
-  colnames(data) <- make.names(colnames(data))
-  
-  candidate_cols <- tail(colnames(data), 2)
-  
-  votes_data <- data %>%
-    select(area_type = Typ.obszaru, all_of(candidate_cols)) %>%
-    pivot_longer(cols = all_of(candidate_cols), 
-                 names_to = "candidate", 
-                 values_to = "votes") %>%
-    filter(!is.na(votes) & votes > 0)
-  
-  return(votes_data)
-}
-```
 ### Preparation for Test 1
 
 ```{r}
-prepare_test1_data <- function(russia_file, belarus_file, poland_file) {
-  russia_votes <- load_russia_data(russia_file)
-  belarus_votes <- load_belarus_data(belarus_file)
-  poland_data <- load_poland_data(poland_file)
-  poland_votes <- poland_data$votes
-  
+prepare_test1_data <- function() {
+  russia_df <- py$russia_cleaned[[1]]$votes
+  poland_df <- py$poland_cleaned[[1]]$votes
+  belarus_df <- py$belarus_cleaned[[1]]$votes
+
+  russia_votes <- as.vector(as.matrix(russia_df))
+  poland_votes <- as.vector(as.matrix(poland_df))
+  belarus_votes <- as.vector(as.matrix(belarus_df))
+
   russia_first <- extract_first_digit(russia_votes)
-  belarus_first <- extract_first_digit(belarus_votes)
   poland_first <- extract_first_digit(poland_votes)
-  
-  russia_freq <- calculate_frequencies(russia_first)
-  belarus_freq <- calculate_frequencies(belarus_first)
-  poland_freq <- calculate_frequencies(poland_first)
-  
-  russia_freq$country <- "Russia (Fraudulent)"
-  belarus_freq$country <- "Belarus (Fraudulent)"
-  poland_freq$country <- "Poland (Fair)"
-  
-  results <- list(
-    russia = list(
-      votes = russia_votes,
-      first_digits = russia_first,
-      frequencies = russia_freq
+  belarus_first <- extract_first_digit(belarus_votes)
+
+  russia_second <- extract_second_digit(russia_votes)
+  poland_second <- extract_second_digit(poland_votes)
+  belarus_second <- extract_second_digit(belarus_votes)
+
+  russia_freq <- calculate_frequencies_1bl(russia_first)
+  poland_freq <- calculate_frequencies_1bl(poland_first)
+  belarus_freq <- calculate_frequencies_1bl(belarus_first)
+
+  russia_freq_2 <- calculate_frequencies_2bl(russia_second)
+  poland_freq_2 <- calculate_frequencies_2bl(poland_second)
+  belarus_freq_2 <- calculate_frequencies_2bl(belarus_second)
+
+  russia_freq$country <- "Russia first voting (2018)"
+  poland_freq$country <- "Poland first voting (2025)"
+  belarus_freq$country <- "Belarus first voting (2020)"
+
+  combined_freq <- bind_rows(russia_freq, poland_freq, belarus_freq)
+
+  return(list(
+    summary = combined_freq,
+    votes = list(
+      russia = russia_votes,
+      poland = poland_votes,
+      belarus = belarus_votes
     ),
-    belarus = list(
-      votes = belarus_votes,
-      first_digits = belarus_first,
-      frequencies = belarus_freq
+    first_digit = list(
+      russia = russia_freq,
+      poland = poland_freq,
+      belarus = belarus_freq
     ),
-    poland = list(
-      votes = poland_votes,
-      first_digits = poland_first,
-      frequencies = poland_freq
-    ),
-    combined_freq = bind_rows(russia_freq, belarus_freq, poland_freq)
-  )
-  
-  return(results)
+    second_digit = list(
+      russia = russia_freq_2,
+      poland = poland_freq_2,
+      belarus = belarus_freq_2
+    )
+  ))
 }
+
+test1_results <- prepare_test1_data()
+final_freq_table <- test1_results$summary
+split(final_freq_table, final_freq_table$country)
 ```
 
-### Preparation for Test 2
+### Extracting data from given files
 
 ```{r}
-prepare_test2_data <- function(poland_file) {
-  poland_data <- load_poland_data(poland_file)
-  
-  urban_votes <- poland_data %>%
-    filter(str_detect(tolower(area_type), "mias")) %>%
-    pull(votes)
-  
-  rural_votes <- poland_data %>%
-    filter(str_detect(tolower(area_type), "wiej")) %>%
-    pull(votes)
-  
-  urban_first <- extract_first_digit(urban_votes)
-  rural_first <- extract_first_digit(rural_votes)
-  
-  urban_freq <- calculate_frequencies(urban_first)
-  rural_freq <- calculate_frequencies(rural_first)
-  
-  urban_freq$area_type <- "Urban"
-  rural_freq$area_type <- "Rural"
-  
-  results <- list(
-    urban = list(
-      votes = urban_votes,
-      first_digits = urban_first,
-      frequencies = urban_freq
-    ),
-    rural = list(
-      votes = rural_votes,
-      first_digits = rural_first,
-      frequencies = rural_freq
-    ),
-    combined_freq = bind_rows(urban_freq, rural_freq)
-  )
-  
-  return(results)
+test1_results <- prepare_test1_data()
+final_freq_table <- test1_results$summary
+final_freq_table
+```
+
+Let's calculate $\chi^2$ values for every election. To do that we'll use this formula:
+
+$$\chi^2 = \sum_{d=1}^{9}{\frac{(O_{d}- E_{d})^2}{E_{d}}}$$
+
+We know expected values beforehand, so it should be pretty straightforward:
+
+```{r}
+Expected <- log10(1 + 1/(1:9))
+```
+
+## Test 1. Were the elections fair?
+
+We will use the law to examine the differences in elections between democratic countries and totalitarian countries. For comparison, we'll use the data sets of elections from belarus/russia (fraudulent elections) and Poland (fair elections).
+
+-   $H_0$: The dataset differs significantly from Benford's Law. This suggests non-natural anomalies, which may indicate data manipulation or fraud.
+-   $H_1$: The dataset follows Benford's Law distribution. This is consistent with a natural, fair election process.
+
+```{r}
+# Original analysis
+poland_freq <- test1_results$first_digit$poland
+poland_chi = chisq.test(poland_freq$observed_count, p = Expected)
+poland_chi
+
+russia_freq <- test1_results$first_digit$russia
+russia_chi = chisq.test(russia_freq$observed_count, p = Expected)
+russia_chi
+
+belarus_freq <- test1_results$first_digit$belarus
+belarus_chi = chisq.test(belarus_freq$observed_count, p = Expected)
+belarus_chi
+
+```
+
+```{r}
+Expected_2 <- c(0.11968, 0.11389, 0.10882, 0.10433, 0.10031, 0.09668, 0.09337, 0.09035, 0.08757, 0.08500)
+
+poland_freq_2 <- test1_results$second_digit$poland
+poland_chi_2 = chisq.test(poland_freq_2$observed_count, p = Expected_2)
+print("Poland - Second Digit (Original):")
+poland_chi_2
+
+russia_freq_2 <- test1_results$second_digit$russia
+russia_chi_2 = chisq.test(russia_freq_2$observed_count, p = Expected_2)
+print("Russia - Second Digit (Original):")
+russia_chi_2
+
+belarus_freq_2 <- test1_results$second_digit$belarus
+belarus_chi_2 = chisq.test(belarus_freq_2$observed_count, p = Expected_2)
+print("Belarus - Second Digit (Original):")
+belarus_chi_2
+```
+
+### Normalized Analysis (5000 polling stations)
+
+Due to the different sizes of polling stations across countries (Poland \~27,000, Belarus \~5,700, Russia \~90,000), we randomly sample 5,000 polling stations from each country for fair comparison.
+
+```{r}
+min_sample_size <- 5000
+
+set.seed(123)
+
+poland_sample <- test1_results$votes$poland %>%
+  as_tibble() %>%
+  sample_n(min_sample_size) %>%
+  pull(value)
+
+russia_sample <- test1_results$votes$russia %>%
+  as_tibble() %>%
+  sample_n(min_sample_size) %>%
+  pull(value)
+
+belarus_sample <- test1_results$votes$belarus %>%
+  as_tibble() %>%
+  sample_n(min_sample_size) %>%
+  pull(value)
+
+
+print("--- POLAND (Resampled N=5000) ---")
+check_benford(poland_sample, "Poland")
+
+print("--- RUSSIA (Resampled N=5000) ---")
+check_benford(russia_sample, "Russia")
+
+
+```
+
+### Second Digit - Normalized Analysis (5000 polling stations)
+
+## Visualization of Second Digit Analysis
+
+```{r}
+ggplot(final_freq_table, aes(x = factor(digit))) +
+  geom_bar(aes(y = observed_prob, fill = country), stat = "identity", alpha = 0.6) +
+  geom_line(aes(y = expected_prob, group = 1), color = "red", size = 1) +
+  geom_point(aes(y = expected_prob), color = "red", size = 2) +
+  facet_wrap(~country) +
+  labs(title = "Benford's Law: Fair vs Fraudulent Elections",
+       subtitle = "Analysis of First Digits in Vote Counts per Precinct",
+       x = "First Digit",
+       y = "Probability") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+check_benford <- function(votes, country_name) {
+  digits <- extract_first_digit(votes)
+  observed_counts <- table(factor(digits, levels = 1:9))
+  benford_probs <- log10(1 + 1/(1:9))
+  test <- chisq.test(observed_counts, p = benford_probs)
+  print(paste("---", country_name, "---"))
+  print(test)
 }
-```
 
-### Extrating data from given files
+check_benford(test1_results$votes$poland, "Poland")
+check_benford(test1_results$votes$russia, "Russia")
+check_benford(test1_results$votes$belarus, "Belarus")
+```
 
 ```{r}
-russia_file <- "voting_data_geo_eng.csv"
-belarus_file <- "Protocol_data.csv"
-poland_file <- "polling_station_protocols_2.csv"
+second_digit_combined <- bind_rows(
+  test1_results$second_digit$russia %>% mutate(country = "Russia second voting (2018)"),
+  test1_results$second_digit$poland %>% mutate(country = "Poland second voting (2025)"),
+  test1_results$second_digit$belarus %>% mutate(country = "Belarus second voting (2020)")
+)
 
-test1_data <- prepare_test1_data(russia_file, belarus_file, poland_file)
-test2_data <- prepare_test2_data(poland_file)
+ggplot(second_digit_combined, aes(x = factor(digit))) +
+  geom_bar(aes(y = observed_prob, fill = country), stat = "identity", alpha = 0.6) +
+  geom_line(aes(y = expected_prob, group = 1), color = "red", size = 1) +
+  geom_point(aes(y = expected_prob), color = "red", size = 2) +
+  facet_wrap(~country) +
+  labs(title = "Benford's Law: Second Digit Analysis",
+       subtitle = "Analysis of Second Digits in Vote Counts per Precinct",
+       x = "Second Digit",
+       y = "Probability") +
+  theme_minimal() +
+  theme(legend.position = "none")
 ```
 
-------------------------------------------------------------------------
+## Test 2. Urban vs. rural districts (Size matters?)
 
-## **Test 1. Were the elections fair?**
+We will assess the effectiveness of the law across a wide range of numbers. We'll use the dataset of Polish elections, which differentiates the population by city and village.
 
-We will use the law to examine the differences in elections between democratic countries and totalitarian countries. For comparison, we’ll use the data sets of elections from belarus/russia (fraudulent elections) and Poland (fair elections).
-
-$H_0$: The dataset follows Benford's Law distribution. This is consistent with a natural, fair election process.
-
-$H_1$:The dataset differs significantly from Benford's Law. This suggests non-natural anomalies, which may indicate data manipulation or fraud.
-
-```{r}
-
-```
-
-------------------------------------------------------------------------
-
-## **Test 2. Urban vs. rural districts (Size matters?)**
-
-We will assess the effectiveness of the law across a wide range of numbers. We’ll use the dataset of Polish elections, which differentiates the population by city and village.
-
-$H_0$: Urban and rural precincts conform to the Benford distribution equally well.
-
-$H_1$: Urban precincts conform more closely to Benford's Law than rural precincts. Reasoning: Urban precincts have a wider range of vote counts (spanning more orders of magnitude), which is a prerequisite for ideal Benford behavior. Rural precincts may have naturally restricted ranges (low counts), causing natural deviations.
+-   $H_0$: Urban and rural precincts conform to the Benford distribution equally well.
+-   $H_1$: Urban precincts conform more closely to Benford's Law than rural precincts. Reasoning: Urban precincts have a wider range of vote counts (spanning more orders of magnitude), which is a prerequisite for ideal Benford behavior. Rural precincts may have naturally restricted ranges (low counts), causing natural deviations.
 
 ```{r}
 
 ```
-
-\
