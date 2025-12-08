@@ -70,21 +70,23 @@ def process_russia_data():
         "Titov Boris Yurievich",
         "Yavlinskiy Gregory Alekseivich"
     ]
-    polling_station = data.melt(
-        id_vars=[col for col in data.columns if col not in candidate_cols],
+
+    region_col = 'region_name'
+    if region_col not in data.columns:
+        print(f"Available columns: {data.columns.tolist()}")
+
+    data_agg = data.groupby(region_col)[candidate_cols].sum().reset_index()
+    data_agg = data_agg.melt(
+        id_vars=[region_col],
         value_vars=candidate_cols,
         var_name="candidate",
         value_name="votes"
     )
-    print(polling_station.head())
-    polling_station = polling_station.dropna(subset=['votes'])
-    polling_station['votes'] = polling_station['votes'].astype(int)
-    results = {}
-    for candidate in candidate_cols:
-        candidate_votes = polling_station[polling_station["candidate"]== candidate]['votes']
-        clean_votes = candidate_votes[candidate_votes >= 10]
-        print(f"candidate {candidate}: polling stations (>= 10 votes) {len(clean_votes)}")
-    return polling_station, candidate_cols
+
+    print(data_agg.head())
+    data_agg = data_agg.dropna(subset=['votes'])
+    data_agg['votes'] = data_agg['votes'].astype(int)
+    return data_agg, candidate_cols
 
 russia_cleaned = process_russia_data()
 ```
@@ -107,21 +109,22 @@ def process_poland_data():
         "WOCH Marek Marian",
         "ZANDBERG Adrian Tadeusz"
     ]
-    polling_station = data.melt(
-        id_vars=[col for col in data.columns if col not in candidate_cols],
+
+    district_col = 'Voivodeship'
+    if district_col not in data.columns:
+        print(f"Available columns: {data.columns.tolist()}")
+
+    data_agg = data.groupby(district_col)[candidate_cols].sum().reset_index()
+    data_agg = data_agg.melt(
+        id_vars=[district_col],
         value_vars=candidate_cols,
         var_name="candidate",
         value_name="votes"
     )
-    print(polling_station.head())
-    polling_station = polling_station.dropna(subset=['votes'])
-    polling_station['votes'] = polling_station['votes'].astype(int)
-    results = {}
-    for candidate in candidate_cols:
-        candidate_votes = polling_station[polling_station["candidate"]== candidate]['votes']
-        clean_votes = candidate_votes[candidate_votes >= 10]
-        print(f"candidate {candidate}: polling stations (>= 10 votes) {len(clean_votes)}")
-    return polling_station, candidate_cols
+    print(data_agg.head())
+    data_agg = data_agg.dropna(subset=['votes'])
+    data_agg['votes'] = data_agg['votes'].astype(int)
+    return data_agg, candidate_cols
 
 poland_cleaned = process_poland_data()
 ```
@@ -137,21 +140,22 @@ def process_belarus_data():
         "Cherechen",
         "Against all"
     ]
-    polling_station = data.melt(
-        id_vars=[col for col in data.columns if col not in candidate_cols],
+
+    region_col = 'District'
+    if region_col not in data.columns:
+        print(f"Available columns: {data.columns.tolist()}")
+        region_col = data.columns[0]
+
+    data_agg = data.groupby(region_col)[candidate_cols].sum().reset_index()
+    data_agg = data_agg.melt(
+        id_vars=[region_col],
         value_vars=candidate_cols,
         var_name="candidate",
         value_name="votes"
     )
-    print(polling_station.head())
-    polling_station = polling_station.dropna(subset=['votes'])
-    polling_station['votes'] = polling_station['votes'].astype(int)
-    results = {}
-    for candidate in candidate_cols:
-        candidate_votes = polling_station[polling_station["candidate"]== candidate]['votes']
-        clean_votes = candidate_votes[candidate_votes >= 10]
-        print(f"candidate {candidate}: polling stations (>= 10 votes) {len(clean_votes)}")
-    return polling_station, candidate_cols
+    data_agg = data_agg.dropna(subset=['votes'])
+    data_agg['votes'] = data_agg['votes'].astype(int)
+    return data_agg, candidate_cols
 
 belarus_cleaned = process_belarus_data()
 ```
@@ -220,13 +224,14 @@ calculate_frequencies_2bl <- function(second_digits) {
 
 ```{r}
 prepare_test1_data <- function() {
-  russia_df <- py$russia_cleaned[[1]]$votes
-  poland_df <- py$poland_cleaned[[1]]$votes
-  belarus_df <- py$belarus_cleaned[[1]]$votes
+  russia_df <- py$russia_cleaned[[1]]
+  poland_df <- py$poland_cleaned[[1]]
+  belarus_df <- py$belarus_cleaned[[1]]
 
-  russia_votes <- as.vector(as.matrix(russia_df))
-  poland_votes <- as.vector(as.matrix(poland_df))
-  belarus_votes <- as.vector(as.matrix(belarus_df))
+  # Extract votes column from aggregated regional data
+  russia_votes <- as.vector(russia_df$votes)
+  poland_votes <- as.vector(poland_df$votes)
+  belarus_votes <- as.vector(belarus_df$votes)
 
 
   russia_votes <- russia_votes[russia_votes >= 10]
@@ -316,9 +321,6 @@ We will use the law to examine the differences in elections between democratic c
 -   $H_1$: The dataset follows Benford's Law distribution. This is consistent with a natural, fair election process.
 
 ```{r}
-# First Digit Chi-squared Test
-# For chi-squared, we need: observed counts and expected probabilities
-# chisq.test will calculate expected counts = sum(observed) * p
 
 poland_first_counts <- test1_results$first_digit$poland$observed_count
 poland_chi <- chisq.test(poland_first_counts, p = Expected)
@@ -360,7 +362,6 @@ print(belarus_chi_2)
 Due to the different sizes of polling stations across countries (Poland \~27,000, Belarus \~5,700, Russia \~90,000), we randomly sample 5,000 polling stations from each country for fair comparison.
 
 ```{r}
-min_sample_size <- 5000
 
 set.seed(91)
 
