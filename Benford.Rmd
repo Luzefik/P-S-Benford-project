@@ -439,9 +439,98 @@ ggplot(second_digit_combined, aes(x = factor(digit))) +
 
 We will assess the effectiveness of the law across a wide range of numbers. We'll use the dataset of Polish elections, which differentiates the population by city and village.
 
--   $H_0$: Urban precincts conform more closely to Benford's Law than rural precincts. Reasoning: Urban precincts have a wider range of vote counts (spanning more orders of magnitude), which is a prerequisite for ideal Benford behavior. Rural precincts may have naturally restricted ranges (low counts), causing natural deviations.
--   $H_1$: Urban and rural precincts conform to the Benford distribution equally well.
+-   $H_0$: Urban and rural precincts conform to the Benford distribution equally well.
+-   $H_1$: Urban precincts conform more closely to Benford's Law than rural precincts. Reasoning: Urban precincts have a wider range of vote counts (spanning more orders of magnitude), which is a prerequisite for ideal Benford behavior. Rural precincts may have naturally restricted ranges (low counts), causing natural deviations.
+
+
+Before analysis, we removed votes with non-positive values or missing data. For each precinct, we extracted the first digit of the vote count using the formula:  
+
+$$
+d_1 = \text{floor}\left(\frac{x}{10^{\lfloor \log_{10}(x) \rfloor}}\right), \quad x > 0
+$$  
+
+The expected distribution of first digits according to Benford's Law is  
+
+$$
+P(d) = \log_{10}\left(1 + \frac{1}{d}\right), \quad d = 1, \dots, 9
+$$  
+
+To evaluate conformity, we used a chi-squared goodness-of-fit test:  
+
+$$
+\chi^2 = \sum_{i=1}^{9} \frac{(O_i - E_i)^2}{E_i}
+$$  
+
+where $O_i$ is the observed count of digit $i$ and $E_i$ is the expected count according to Benford's probabilities.  
+
+Additionally, to compare urban and rural precincts directly, we applied a bootstrap (Monte Carlo) procedure. We resampled precincts with replacement 1000 times for each group, computed the chi-squared statistic for each resample, and calculated the empirical p-value as  
+
+$$
+p_{\text{bootstrap}} = \frac{\#\{ \text{resampled differences } \geq \text{observed difference} \}}{1000}
+$$  
+
+A small p-value (typically $p < 0.05$) indicates rejection of $H_0$, suggesting that urban precincts conform more closely to Benford's Law than rural precincts.
+
 
 ```{r}
+library(dplyr)
+
+poland <- read.csv(
+  "first_round_results_from_district_electoral_comissions.csv",
+  header = TRUE,
+  sep = ",",
+  encoding = "UTF-8",
+  stringsAsFactors = FALSE
+)
+
+vote_col <- "Number.of.valid.votes.cast.for.all.candidates..from.valid.ballots."
+area_col <- "District.type"
+
+poland$votes <- as.numeric(poland[[vote_col]])
+poland$area <- trimws(poland[[area_col]])
+
+poland_clean <- poland %>%
+  filter(!is.na(votes), votes > 0, !is.na(area))
+
+first_digit <- function(x) {
+  as.numeric(substr(as.character(floor(abs(x))), 1, 1))
+}
+
+miasto_digits <- first_digit(poland_clean$votes[poland_clean$area == "miasto"])
+wies_digits   <- first_digit(poland_clean$votes[poland_clean$area == "wieś"])
+
+prop_miasto <- prop.table(table(factor(miasto_digits, levels = 1:9)))
+prop_wies   <- prop.table(table(factor(wies_digits, levels = 1:9)))
+
+benford <- log10(1 + 1/(1:9))
+n_m <- length(miasto_digits)
+n_w <- length(wies_digits)
+
+chi_m_test <- chisq.test(x = round(prop_miasto * n_m), p = benford)
+chi_w_test <- chisq.test(x = round(prop_wies * n_w), p = benford)
+
+cat("Miejski χ²:", round(chi_m_test$statistic,4), ", p-value:", round(chi_m_test$p.value,4), "\n")
+cat("Wiejski χ²:", round(chi_w_test$statistic,4), ", p-value:", round(chi_w_test$p.value,4), "\n")
+
+set.seed(123)
+B <- 1000
+boot_diff <- replicate(B, {
+  chi_m_boot <- sum((prop.table(table(factor(sample(miasto_digits, replace=TRUE), levels=1:9))) - benford)^2 / benford)
+  chi_w_boot <- sum((prop.table(table(factor(sample(wies_digits, replace=TRUE), levels=1:9))) - benford)^2 / benford)
+  chi_w_boot - chi_m_boot
+})
+
+obs_diff <- sum((prop_wies - benford)^2 / benford) - sum((prop_miasto - benford)^2 / benford)
+p_value_mc <- mean(boot_diff >= obs_diff)
+
+cat("Observed χ² difference (wieś - miejski, relative):", round(obs_diff,4), "\n")
+cat("Bootstrap p-value:", round(p_value_mc,4), "\n")
+
+alpha <- 0.05
+if(p_value_mc < alpha){
+  cat("Reject H0. Urban is closer to Benford.\n")
+} else {
+  cat("Do not reject H0. Data does not confirm hypothsis, that urban is closer to Benford.\n")
+}
 
 ```
