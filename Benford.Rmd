@@ -270,6 +270,16 @@ prepare_test1_data <- function() {
   ))
 }
 
+check_benford <- function(votes, country_name) {
+  digits <- extract_first_digit(votes)
+  observed_counts <- table(factor(digits, levels = 1:9))
+  benford_probs <- log10(1 + 1/(1:9))
+  test <- chisq.test(observed_counts, p = benford_probs)
+  print(paste("---", country_name, "---"))
+  print(test)
+}
+
+
 test1_results <- prepare_test1_data()
 final_freq_table <- test1_results$summary
 split(final_freq_table, final_freq_table$country)
@@ -301,38 +311,43 @@ We will use the law to examine the differences in elections between democratic c
 -   $H_1$: The dataset follows Benford's Law distribution. This is consistent with a natural, fair election process.
 
 ```{r}
-# Original analysis
-poland_freq <- test1_results$first_digit$poland
-poland_chi = chisq.test(poland_freq$observed_count, p = Expected)
-poland_chi
+# First Digit Chi-squared Test
+# For chi-squared, we need: observed counts and expected probabilities
+# chisq.test will calculate expected counts = sum(observed) * p
 
-russia_freq <- test1_results$first_digit$russia
-russia_chi = chisq.test(russia_freq$observed_count, p = Expected)
-russia_chi
+poland_first_counts <- test1_results$first_digit$poland$observed_count
+poland_chi <- chisq.test(poland_first_counts, p = Expected)
+cat("POLAND - First Digit\n")
+print(poland_chi)
 
-belarus_freq <- test1_results$first_digit$belarus
-belarus_chi = chisq.test(belarus_freq$observed_count, p = Expected)
-belarus_chi
+russia_first_counts <- test1_results$first_digit$russia$observed_count
+russia_chi <- chisq.test(russia_first_counts, p = Expected)
+cat("\nRUSSIA - First Digit\n")
+print(russia_chi)
 
+belarus_first_counts <- test1_results$first_digit$belarus$observed_count
+belarus_chi <- chisq.test(belarus_first_counts, p = Expected)
+cat("\nBELARUS - First Digit\n")
+print(belarus_chi)
 ```
 
 ```{r}
 Expected_2 <- c(0.11968, 0.11389, 0.10882, 0.10433, 0.10031, 0.09668, 0.09337, 0.09035, 0.08757, 0.08500)
 
-poland_freq_2 <- test1_results$second_digit$poland
-poland_chi_2 = chisq.test(poland_freq_2$observed_count, p = Expected_2)
-print("Poland - Second Digit (Original):")
-poland_chi_2
+poland_second_counts <- test1_results$second_digit$poland$observed_count
+poland_chi_2 <- chisq.test(poland_second_counts, p = Expected_2)
+cat("POLAND - Second Digit\n")
+print(poland_chi_2)
 
-russia_freq_2 <- test1_results$second_digit$russia
-russia_chi_2 = chisq.test(russia_freq_2$observed_count, p = Expected_2)
-print("Russia - Second Digit (Original):")
-russia_chi_2
+russia_second_counts <- test1_results$second_digit$russia$observed_count
+russia_chi_2 <- chisq.test(russia_second_counts, p = Expected_2)
+cat("\nRUSSIA - Second Digit\n")
+print(russia_chi_2)
 
-belarus_freq_2 <- test1_results$second_digit$belarus
-belarus_chi_2 = chisq.test(belarus_freq_2$observed_count, p = Expected_2)
-print("Belarus - Second Digit (Original):")
-belarus_chi_2
+belarus_second_counts <- test1_results$second_digit$belarus$observed_count
+belarus_chi_2 <- chisq.test(belarus_second_counts, p = Expected_2)
+cat("\nBELARUS - Second Digit\n")
+print(belarus_chi_2)
 ```
 
 ### Normalized Analysis (5000 polling stations)
@@ -342,7 +357,7 @@ Due to the different sizes of polling stations across countries (Poland \~27,000
 ```{r}
 min_sample_size <- 5000
 
-set.seed(123)
+set.seed(91)
 
 poland_sample <- test1_results$votes$poland %>%
   as_tibble() %>%
@@ -363,10 +378,11 @@ belarus_sample <- test1_results$votes$belarus %>%
 print("--- POLAND (Resampled N=5000) ---")
 check_benford(poland_sample, "Poland")
 
-print("--- RUSSIA (Resampled N=5000) ---")
-check_benford(russia_sample, "Russia")
+print("--- russia (Resampled N=5000) ---")
+check_benford(russia_sample, "russia")
 
-
+print("--- belarus (Resampled N=5000) ---")
+check_benford(belarus_sample, "belarus")
 ```
 
 ### Second Digit - Normalized Analysis (5000 polling stations)
@@ -386,14 +402,7 @@ ggplot(final_freq_table, aes(x = factor(digit))) +
   theme_minimal() +
   theme(legend.position = "none")
 
-check_benford <- function(votes, country_name) {
-  digits <- extract_first_digit(votes)
-  observed_counts <- table(factor(digits, levels = 1:9))
-  benford_probs <- log10(1 + 1/(1:9))
-  test <- chisq.test(observed_counts, p = benford_probs)
-  print(paste("---", country_name, "---"))
-  print(test)
-}
+
 
 check_benford(test1_results$votes$poland, "Poland")
 check_benford(test1_results$votes$russia, "Russia")
@@ -424,8 +433,8 @@ ggplot(second_digit_combined, aes(x = factor(digit))) +
 
 We will assess the effectiveness of the law across a wide range of numbers. We'll use the dataset of Polish elections, which differentiates the population by city and village.
 
--   $H_0$: Urban and rural precincts conform to the Benford distribution equally well.
--   $H_1$: Urban precincts conform more closely to Benford's Law than rural precincts. Reasoning: Urban precincts have a wider range of vote counts (spanning more orders of magnitude), which is a prerequisite for ideal Benford behavior. Rural precincts may have naturally restricted ranges (low counts), causing natural deviations.
+-   $H_0$: Urban precincts conform more closely to Benford's Law than rural precincts. Reasoning: Urban precincts have a wider range of vote counts (spanning more orders of magnitude), which is a prerequisite for ideal Benford behavior. Rural precincts may have naturally restricted ranges (low counts), causing natural deviations.
+-   $H_1$: Urban and rural precincts conform to the Benford distribution equally well.
 
 ```{r}
 
