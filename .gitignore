@@ -1,0 +1,9 @@
+# Rendered notebook output
+Benford.html
+Benford.nb.html
+Benford.knit.md
+*_files/
+*_cache/
+
+# macOS
+.DS_Store

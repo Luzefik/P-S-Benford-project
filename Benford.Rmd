@@ -43,7 +43,10 @@ $$\chi^2 = \sum_{d=1}^{9}{\frac{(O_{d}- E_{d})^2}{E_{d}}}$$
 
 ```{r setup}
 library(reticulate)
-py_install("pandas")
+# pandas>=3.0 breaks reticulate's automatic DataFrame/Series -> R conversion
+# (columns come back as raw Python objects, e.g. `as.vector()` fails with
+# "cannot coerce type 'environment'"). Pin to the 2.x line for compatibility.
+py_install("pandas<3")
 library(dplyr)
 library(rmarkdown)
 library(ggplot2)
@@ -75,8 +78,11 @@ def process_russia_data():
     if region_col not in data.columns:
         print(f"Available columns: {data.columns.tolist()}")
 
-    data_agg = data.groupby(region_col)[candidate_cols].sum().reset_index()
-    data_agg = data_agg.melt(
+    # Keep one row per precinct per candidate (the vote count X described in
+    # the Random Variable section) instead of summing votes up to region
+    # level first -- summing collapses ~20k precincts into ~17 regions,
+    # which leaves far too few rows for the 5,000-precinct resample below.
+    data_agg = data.melt(
         id_vars=[region_col],
         value_vars=candidate_cols,
         var_name="candidate",
@@ -110,12 +116,20 @@ def process_poland_data():
         "ZANDBERG Adrian Tadeusz"
     ]
 
+    # NOTE: the source CSV's header row is mislabeled -- the values under
+    # "Voivodeship" are actually polling-station addresses (Headquarters),
+    # while the real voivodeship names ("dolnośląskie", etc.) sit under the
+    # "County ID" header instead. Since we no longer aggregate by region
+    # (see below), this mislabeling no longer affects the analysis, but
+    # don't use this column expecting real voivodeship names.
     district_col = 'Voivodeship'
     if district_col not in data.columns:
         print(f"Available columns: {data.columns.tolist()}")
 
-    data_agg = data.groupby(district_col)[candidate_cols].sum().reset_index()
-    data_agg = data_agg.melt(
+    # Keep one row per precinct per candidate (the vote count X described in
+    # the Random Variable section) instead of summing votes up to region
+    # level first -- see the same note in process_russia_data().
+    data_agg = data.melt(
         id_vars=[district_col],
         value_vars=candidate_cols,
         var_name="candidate",
@@ -146,8 +160,10 @@ def process_belarus_data():
         print(f"Available columns: {data.columns.tolist()}")
         region_col = data.columns[0]
 
-    data_agg = data.groupby(region_col)[candidate_cols].sum().reset_index()
-    data_agg = data_agg.melt(
+    # Keep one row per precinct per candidate (the vote count X described in
+    # the Random Variable section) instead of summing votes up to region
+    # level first -- see the same note in process_russia_data().
+    data_agg = data.melt(
         id_vars=[region_col],
         value_vars=candidate_cols,
         var_name="candidate",
@@ -298,8 +314,9 @@ split(final_freq_table, final_freq_table$country)
 ### Extracting data from given files
 
 ```{r}
-test1_results <- prepare_test1_data()
-final_freq_table <- test1_results$summary
+# test1_results / final_freq_table were already computed just above; no need
+# to call prepare_test1_data() a second time (it re-runs the R<->Python
+# conversion for every country).
 final_freq_table
 ```
 
@@ -364,6 +381,8 @@ Due to the different sizes of polling stations across countries (Poland \~27,000
 ```{r}
 
 set.seed(91)
+
+min_sample_size <- 5000
 
 poland_sample <- test1_results$votes$poland %>%
   as_tibble() %>%
